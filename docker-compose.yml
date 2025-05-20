@@ -1,0 +1,66 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama:/ollama
+      - models:/models
+    tty: true
+    networks:
+        - tunnel
+    environment:
+      - OLLAMA_MODELS=/models
+      # Uncomment the following lines to enable the Ollama API
+      - OLLAMA_API=1
+      # Uncomment the following lines to enable the Ollama CLI
+      - OLLAMA_CLI=1
+      # Uncomment the following lines to enable the Ollama Web UI
+      - OLLAMA_WEB=1
+      - OLLAMA_DEBUG=1
+    restart: unless-stopped
+  webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ollama-webui
+    ports:
+      - "9110:8080"
+    depends_on:
+      - ollama
+    restart: unless-stopped
+    volumes:
+      - open-webui:/app/backend/data
+    networks:
+        - tunnel
+    environment:
+      - OLLAMA_API_URL=http://ollama:11434
+      - OLLAMA_WEBUI_PORT=8080
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - 'WEBUI_SECRET_KEY='
+      # - OLLAMA_WEBUI_HOST=
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    depends_on:
+      - webui
+    command: tunnel --no-autoupdate run --token eyJ... # Replace with your actual Cloudflare token
+    volumes:
+      - cloudflared:/etc/cloudflared
+    networks:
+        - tunnel
+    environment:
+      - TUNNEL_TOKEN=your_tunnel_token_here
+      - TUNNEL_NAME=your_tunnel_name_here
+      - TUNNEL_HOSTNAME=your_tunnel_hostname_here
+      - TUNNEL_PORT=8080
+      - TUNNEL_ORIGIN_CA_CERT=/etc/cloudflared/cert.pem
+
+volumes:
+    ollama:
+    models:
+    open-webui:
+    cloudflared:
+
+networks:
+    tunnel:
